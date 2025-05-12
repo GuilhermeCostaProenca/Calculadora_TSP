@@ -1,34 +1,39 @@
 import os
 import requests
+from dotenv import load_dotenv
+load_dotenv()
 
-AZURE_MAPS_KEY = os.getenv("AZURE_MAPS_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-def geocode_address_azure(endereco):
+def geocode_address_google(address):
     """
-    Converte um endereço para (latitude, longitude) usando Azure Maps
+    Converte um endereço em latitude/longitude usando a Google Geocoding API
     """
-    url = f"https://atlas.microsoft.com/search/address/json"
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
     params = {
-        "api-version": "1.0",
-        "subscription-key": AZURE_MAPS_KEY,
-        "query": endereco
+        "address": address,
+        "key": GOOGLE_API_KEY
     }
 
     response = requests.get(url, params=params)
     data = response.json()
 
-    if not data["results"]:
-        raise Exception(f"Endereço não encontrado: {endereco}")
+    if not data.get("results"):
+        raise Exception(f"Endereço não encontrado: {address}")
 
-    pos = data["results"][0]["position"]
-    return (pos["lat"], pos["lon"])
+    location = data["results"][0]["geometry"]["location"]
+    return (location["lat"], location["lng"])
 
-def geocode_addresses(enderecos):
+def geocode_addresses(addresses):
+    """
+    Recebe uma lista de endereços e retorna uma lista de tuplas (lat, lng)
+    """
     coordenadas = []
-    for endereco in enderecos:
+    for address in addresses:
         try:
-            coordenadas.append(geocode_address_azure(endereco))
+            latlng = geocode_address_google(address)
+            coordenadas.append(latlng)
         except Exception as e:
-            print(f"[ERRO] {endereco}: {e}")
+            print(f"[ERRO GEOCODIFICAÇÃO] {address}: {e}")
             coordenadas.append((None, None))
     return coordenadas
