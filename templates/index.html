@@ -12,6 +12,17 @@
     <form action="/upload" method="post" enctype="multipart/form-data">
       <label for="file">Envie a planilha (.xlsx):</label>
       <input type="file" name="file" accept=".xlsx" required>
+
+      <label for="quantidade">Quantas lojas deseja calcular?</label>
+      <select name="quantidade" required>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>
+        <option value="60">60</option>
+      </select>
+
       <button type="submit">Calcular Rota</button>
     </form>
 

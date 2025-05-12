@@ -1,8 +1,10 @@
-from flask import request, render_template, redirect, url_for
+from flask import request, render_template
 import os
 import pandas as pd
 from app.logic.geocoder import geocode_addresses
 from app.logic.route_optimizer import optimize_route
+from app.logic.agrupador import agrupar_por_estado
+from app.utils.batch_splitter import dividir_em_lotes
 
 UPLOAD_FOLDER = "data"
 
@@ -14,6 +16,8 @@ def configure_routes(app):
     @app.route("/upload", methods=["POST"])
     def upload_file():
         file = request.files.get("file")
+        quantidade = int(request.form.get("quantidade", 10))
+
         if not file:
             return render_template("index.html", error="Nenhum arquivo enviado.")
 
@@ -22,13 +26,23 @@ def configure_routes(app):
 
         # Ler o Excel
         df = pd.read_excel(filename)
-        df = df.head(10)  # pega só as 10 primeiras lojas por enquanto
+
+        # Agrupar por estado (exemplo: SP)
+        from app.logic.agrupador import agrupar_por_estado
+        grupos = agrupar_por_estado(df)
+        df_sp = grupos.get("SP", pd.DataFrame())
+
+        if df_sp.empty:
+            return render_template("index.html", error="Nenhuma loja do estado de SP encontrada.")
+
+        # Selecionar quantidade desejada
+        df_lote = df_sp.head(quantidade)
 
         # Gerar endereços completos
-        df["endereco_completo"] = df["Endereço"] + ", " + df["CIDADE"] + ", " + df["ESTADO"]
+        df_lote["endereco_completo"] = df_lote["Endereço"] + ", " + df_lote["CIDADE"] + ", " + df_lote["ESTADO"]
 
         # Obter coordenadas (incluindo o ponto de partida no Butantã)
-        locais = ["Butantã, São Paulo - SP"] + df["endereco_completo"].tolist()
+        locais = ["Butantã, São Paulo - SP"] + df_lote["endereco_completo"].tolist()
         coordenadas = geocode_addresses(locais)
 
         # Calcular a rota otimizada
