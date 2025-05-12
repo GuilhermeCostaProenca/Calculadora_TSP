@@ -8,6 +8,7 @@ from app.logic.agrupador import agrupar_por_estado
 from app.utils.batch_splitter import dividir_em_lotes
 
 UPLOAD_FOLDER = "data"
+MAX_GOOGLE_ELEMENTS = 100  # 10 x 10 no máximo
 
 def configure_routes(app):
     @app.route("/", methods=["GET"])
@@ -44,6 +45,11 @@ def configure_routes(app):
 
         # Criar lista de endereços com o ponto de partida (Butantã)
         locais = ["Butantã, São Paulo - SP"] + df_lote["endereco_completo"].tolist()
+
+        # 🚨 Verifica o limite da API do Google
+        total_elementos = len(locais) * len(locais)
+        if total_elementos > MAX_GOOGLE_ELEMENTS:
+            return render_template("index.html", error=f"O Google permite no máximo 10 endereços por rota. Você enviou {len(locais)} ({total_elementos} elementos).")
 
         # Geocodificar os endereços
         try:
