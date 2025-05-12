@@ -1,35 +1,34 @@
-import requests
 import os
-from dotenv import load_dotenv 
-load_dotenv()
+import requests
 
-# Chave da API do Google
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+AZURE_MAPS_KEY = os.getenv("AZURE_MAPS_KEY")
 
-def geocode_address(address):
-    url = "https://maps.googleapis.com/maps/api/geocode/json"
+def geocode_address_azure(endereco):
+    """
+    Converte um endereço para (latitude, longitude) usando Azure Maps
+    """
+    url = f"https://atlas.microsoft.com/search/address/json"
     params = {
-        "address": address,
-        "key": GOOGLE_API_KEY
+        "api-version": "1.0",
+        "subscription-key": AZURE_MAPS_KEY,
+        "query": endereco
     }
 
     response = requests.get(url, params=params)
-    if response.status_code != 200:
-        raise Exception("Erro na requisição da API de Geocodificação.")
-
     data = response.json()
+
     if not data["results"]:
-        raise Exception(f"Endereço não encontrado: {address}")
+        raise Exception(f"Endereço não encontrado: {endereco}")
 
-    location = data["results"][0]["geometry"]["location"]
-    return (location["lat"], location["lng"])
+    pos = data["results"][0]["position"]
+    return (pos["lat"], pos["lon"])
 
-def geocode_addresses(addresses):
+def geocode_addresses(enderecos):
     coordenadas = []
-    for address in addresses:
+    for endereco in enderecos:
         try:
-            coordenadas.append(geocode_address(address))
+            coordenadas.append(geocode_address_azure(endereco))
         except Exception as e:
-            print(f"Erro ao geocodificar '{address}': {e}")
+            print(f"[ERRO] {endereco}: {e}")
             coordenadas.append((None, None))
     return coordenadas
