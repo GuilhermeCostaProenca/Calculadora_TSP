@@ -1,0 +1,20 @@
+# Ambiente virtual
+venv/
+__pycache__/
+*.pyc
+
+# Configurações locais
+.env
+
+# Cache do VSCode ou PyCharm
+.vscode/
+.idea/
+
+# Arquivos temporários
+*.log
+*.bak
+*.swp
+.DS_Store
+
+# Dados de testes e uploads
+/data/*.xlsx

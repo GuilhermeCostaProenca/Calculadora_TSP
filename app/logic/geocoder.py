@@ -1,7 +1,8 @@
 import requests
 import os
-drom dotenv 
-dotenv.config()
+from dotenv import load_dotenv 
+load_dotenv()
+
 # Chave da API do Google
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
