@@ -1,9 +1,14 @@
 import os
 import requests
+from dotenv import load_dotenv
 
+load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 def get_distance_matrix_google(locais):
+    if len(locais) > 10:
+        raise Exception("Erro: Google permite no máximo 10 locais por requisição.")
+
     url = "https://maps.googleapis.com/maps/api/distancematrix/json"
     params = {
         "origins": "|".join(locais),

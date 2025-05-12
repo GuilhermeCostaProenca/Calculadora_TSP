@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Calculadora de Rota - You.on</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    #map { height: 500px; width: 100%; margin-top: 30px; border-radius: 10px; box-shadow: 0 0 12px rgba(0,0,0,0.1); }
+    .btns { margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; }
+    button, a.button-link {
+      padding: 10px 20px;
+      background-color: #4285F4;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .button-link:hover, button:hover {
+      background-color: #3367D6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧭 Calculadora de Rota</h1>
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <label for="file">Envie a planilha (.xlsx):</label>
+      <input type="file" name="file" accept=".xlsx" required>
+
+      <p style="margin: 10px 0;"><strong>Nota:</strong> sempre 10 lojas + U1 (escritório)</p>
+
+      <button type="submit">Calcular Rota</button>
+    </form>
+
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+
+    {% if resultado %}
+      <h2>📍 Ordem de Visitação</h2>
+      <ol>
+        {% for item in resultado.rota_formatada %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ol>
+
+      <p><strong>Distância Total Aproximada:</strong> {{ resultado.distancia_total_km }} km</p>
+
+      <div class="btns">
+        <a class="button-link" href="{{ resultado.google_maps_url }}" target="_blank">🗺️ Abrir no Google Maps</a>
+        <button onclick="window.print()">🧾 Gerar PDF</button>
+      </div>
+
+      <div id="map"></div>
+
+      <script>
+        function initMap() {
+          const rota = {{ resultado.rota | tojson | safe }};
+          const labels = ["U1", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+
+          const map = new google.maps.Map(document.getElementById("map"), {
+            zoom: 12,
+            center: { lat: -23.561684, lng: -46.625378 },
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false
+          });
+
+          const directionsService = new google.maps.DirectionsService();
+          const directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: true });
+          directionsRenderer.setMap(map);
+
+          const waypoints = rota.slice(1, -1).map(local => ({ location: local, stopover: true }));
+
+          directionsService.route({
+            origin: rota[0],
+            destination: rota[rota.length - 1],
+            waypoints: waypoints,
+            travelMode: google.maps.TravelMode.DRIVING
+          }, (response, status) => {
+            if (status === "OK") {
+              directionsRenderer.setDirections(response);
+            } else {
+              alert("Erro ao calcular rota: " + status);
+            }
+          });
+
+          rota.forEach((endereco, i) => {
+            const label = labels[i] || "";
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ address: endereco }, (results, status) => {
+              if (status === "OK") {
+                new google.maps.Marker({
+                  map: map,
+                  position: results[0].geometry.location,
+                  label: label,
+                  title: endereco
+                });
+              }
+            });
+          });
+        }
+      </script>
+
+      <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key={{ api_key }}&callback=initMap">
+      </script>
+    {% endif %}
+  </div>
+</body>
+</html>

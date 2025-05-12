@@ -5,79 +5,63 @@ from app.logic.geocoder import geocode_addresses
 from app.logic.distance_matrix_google import get_distance_matrix_google
 from app.logic.route_optimizer import optimize_route
 from app.logic.agrupador import agrupar_por_estado
-from app.utils.batch_splitter import dividir_em_lotes
+from os import getenv
 
 UPLOAD_FOLDER = "data"
-MAX_GOOGLE_ELEMENTS = 100  # 10 x 10 no máximo
+U1_ENDERECO = "Rua Gerivatiba, 207, São Paulo - SP"
 
 def configure_routes(app):
     @app.route("/", methods=["GET"])
     def index():
-        return render_template("index.html")
+        return render_template("index.html", resultado=None, api_key=getenv("GOOGLE_API_KEY"))
 
     @app.route("/upload", methods=["POST"])
     def upload_file():
         file = request.files.get("file")
-        quantidade = int(request.form.get("quantidade", 10))
-
         if not file:
-            return render_template("index.html", error="Nenhum arquivo enviado.")
+            return render_template("index.html", error="Nenhum arquivo enviado.", resultado=None)
 
-        # Salvar arquivo
         filename = os.path.join(UPLOAD_FOLDER, "lojas.xlsx")
         file.save(filename)
 
-        # Ler Excel
         df = pd.read_excel(filename)
-
-        # Agrupar por estado e selecionar SP
         grupos = agrupar_por_estado(df)
         df_sp = grupos.get("SP", pd.DataFrame())
-
         if df_sp.empty:
-            return render_template("index.html", error="Nenhuma loja do estado de SP encontrada.")
+            return render_template("index.html", error="Nenhuma loja do estado de SP encontrada.", resultado=None)
 
-        # Selecionar o lote desejado
-        df_lote = df_sp.head(quantidade).copy()
-
-        # Gerar endereços completos
+        df_lote = df_sp.head(10).copy()
         df_lote["endereco_completo"] = df_lote["Endereço"] + ", " + df_lote["CIDADE"] + ", " + df_lote["ESTADO"]
 
-        # Criar lista de endereços com o ponto de partida (Butantã)
-        locais = ["Butantã, São Paulo - SP"] + df_lote["endereco_completo"].tolist()
+        locais = [U1_ENDERECO] + df_lote["endereco_completo"].tolist()
 
-        # 🚨 Verifica o limite da API do Google
-        total_elementos = len(locais) * len(locais)
-        if total_elementos > MAX_GOOGLE_ELEMENTS:
-            return render_template("index.html", error=f"O Google permite no máximo 10 endereços por rota. Você enviou {len(locais)} ({total_elementos} elementos).")
-
-        # Geocodificar os endereços
         try:
             coordenadas = geocode_addresses(locais)
         except Exception as e:
-            return render_template("index.html", error=f"Erro na geocodificação: {e}")
+            return render_template("index.html", error=f"Erro na geocodificação: {e}", resultado=None)
 
-        # Obter matriz de distâncias reais com Google
         try:
             matriz_distancias = get_distance_matrix_google(locais)
         except Exception as e:
-            return render_template("index.html", error=f"Erro ao calcular matriz de distância: {e}")
+            return render_template("index.html", error=f"Erro ao calcular matriz de distância: {e}", resultado=None)
 
-        # Calcular rota otimizada
         rota_otimizada, distancia_total = optimize_route(matriz_distancias)
 
-        # Montar relatório A → B → C
-        rota_detalhada = []
-        for i in range(len(rota_otimizada) - 1):
-            origem = locais[rota_otimizada[i]]
-            destino = locais[rota_otimizada[i + 1]]
-            rota_detalhada.append(f"{origem} → {destino}")
+        rota_formatada = []
+        for i, idx in enumerate(rota_otimizada):
+            if i == 0:
+                rota_formatada.append(f"U1: {locais[idx]}")
+            else:
+                letra = chr(64 + i)  # A, B, C...
+                rota_formatada.append(f"{letra}: {locais[idx]}")
 
-        # Enviar resultado para a tela
+        url_google_maps = "https://www.google.com/maps/dir/" + "/".join([locais[i].replace(" ", "+") for i in rota_otimizada])
+
         resultado = {
             "rota": [locais[i] for i in rota_otimizada],
-            "relatorio": rota_detalhada,
-            "distancia_total_km": round(distancia_total, 2)
+            "rota_formatada": rota_formatada,
+            "distancia_total_km": round(distancia_total, 2),
+            "google_maps_url": url_google_maps
         }
 
-        return render_template("index.html", resultado=resultado)
+        return render_template("index.html", resultado=resultado, api_key=getenv("GOOGLE_API_KEY"))
